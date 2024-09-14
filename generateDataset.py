@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 
 # For each table of data, this is the name of the first fossil. Pandas will only scrape tables that have one of these fossil names. 
 firstFossilFromEachTable = [
@@ -31,20 +32,25 @@ firstFossilFromEachTable = [
 listOfTables = []
 
 for fossil in firstFossilFromEachTable:
-    table = pd.read_html('https://en.wikipedia.org/wiki/List_of_human_evolution_fossils#Late_Miocene_(7.2%E2%80%935.5_million_years_old)', match=f'^{fossil['firstFossilName']}$')
-    
-    if len(table) > 1:
-        print(f'Matching multiple tables for: {fossil}. There should only be 1... Taking first match.')
+    table = pd.read_html('https://en.wikipedia.org/wiki/List_of_human_evolution_fossils#Late_Miocene_(7.2%E2%80%935.5_million_years_old)',
+                         match=f'^{fossil["firstFossilName"]}$',
+                         attrs={'class': 'wikitable'})
+
+    if len(table) >= 1:
+        if len(table) > 1:
+            print(f'Matching multiple tables for: {fossil}. There should only be 1... Taking first match.')
+
         table = table[0]
-    elif len(table) == 0:
+        listOfTables.append(table)
+    else:
         print(f'No matching table found for {fossil}...')
-    elif len(table) == 1:
-        table = table[0]
 
     
-    listOfTables.append(table)
+    
 
 concatTables = pd.concat(listOfTables)
+
+print(concatTables)
 
 def combineYearDiscoveredColumns(row):
     if not pd.isna(row['Year discovered']):
@@ -55,5 +61,7 @@ def combineYearDiscoveredColumns(row):
         return ''
 
 concatTables['Date of Discovery'] = concatTables.apply(combineYearDiscoveredColumns, axis=1)
-mergedDateTable = concatTables.drop(columns=['Year discovered', 'Date discovered'])
-print(mergedDateTable.columns.values)
+mergedDateTable = concatTables.drop(columns=['Year discovered', 'Date discovered', "Unnamed: 0"])
+removeCitations = mergedDateTable.replace(r'\[\d+\]', '', regex=True)
+removeCitations.to_json('fossil_data.json', orient='records', lines=False, force_ascii=False)
+
